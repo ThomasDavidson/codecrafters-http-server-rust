@@ -1,7 +1,10 @@
 // Uncomment this block to pass the first stage
 use core::str;
+use std::collections::{hash_map, HashMap};
 use std::io::{Read, Write};
 use std::net::TcpListener;
+
+use itertools::Itertools;
 
 #[derive(Debug)]
 enum Method {
@@ -71,15 +74,49 @@ impl HttpCode {
         .to_string()
     }
 }
+
 struct Response {
-    protocol: String,
-    http_code: HttpCode,
+    header: StartLine,
+    http_headers: HashMap<String, String>,
+    body: String,
 }
 impl Response {
     fn to_string(&self) -> String {
-        format!("{} {}\r\n\r\n", self.protocol, self.http_code.to_string())
+        let mut fmt_headers = self.http_headers.iter().map(|(key, header)| format!("{key}:{header}"));
+        let head_str = fmt_headers.join("\r\n");
+
+        format!(
+            "{}\r\n{}\r\n\r\n{}",
+            self.header.to_string(),
+            head_str,
+            self.body.to_string()
+        )
     }
-    fn new(code: HttpCode) -> Response {
+    fn new_empty(code: HttpCode, body: &str) -> Self {
+        Self {
+            header: StartLine::new(code),
+            http_headers: HashMap::new(),
+            body: body.to_string(),
+        }
+    }
+    fn new(code: HttpCode, headers: HashMap<String, String>, body: &str) -> Self {
+        Self {
+            header: StartLine::new(code),
+            http_headers: headers,
+            body: body.to_string(),
+        }
+    }
+}
+struct StartLine {
+    protocol: String,
+    http_code: HttpCode,
+}
+
+impl StartLine {
+    fn to_string(&self) -> String {
+        format!("{} {}", self.protocol, self.http_code.to_string())
+    }
+    fn new(code: HttpCode) -> Self {
         Self {
             protocol: PROTOCOL_VERSION.to_string(),
             http_code: code,
@@ -112,13 +149,41 @@ fn main() {
                 let resp_lines = str_resp.lines().collect::<Vec<&str>>();
 
                 let Some(header) = Header::from_string(resp_lines[0]) else {
-                    stream.write_all(Response::new(HttpCode::BadRequest).to_string().as_bytes()).unwrap();
+                    stream
+                        .write_all(
+                            Response::new_empty(HttpCode::BadRequest, "")
+                                .to_string()
+                                .as_bytes(),
+                        )
+                        .unwrap();
                     continue;
                 };
 
                 match header.path.as_str() {
-                    "/" => stream.write_all(Response::new(HttpCode::OK).to_string().as_bytes()).unwrap(),
-                    _ => stream.write_all(Response::new(HttpCode::NotFound).to_string().as_bytes()).unwrap(),
+                    "/" => stream
+                        .write_all(Response::new_empty(HttpCode::OK, "").to_string().as_bytes())
+                        .unwrap(),
+                    header => {
+                        if header.starts_with("/echo/") {
+                            let body = &header[6..];
+                            let http_headers: HashMap<String, String> = HashMap::from(
+                                [
+                                    ("Content-Length".to_string(), body.len().to_string()),
+                                    ("Content-Type".to_string(), "text/plain".to_string()),
+                                ],
+                            );
+
+                            stream
+                                .write_all(Response::new(HttpCode::OK, http_headers, body).to_string().as_bytes())
+                                .unwrap()
+                        } else {
+                            stream
+                                .write_all(
+                                    Response::new_empty(HttpCode::NotFound, "").to_string().as_bytes(),
+                                )
+                                .unwrap()
+                        }
+                    }
                 }
 
                 println!("{:?}", header);
