@@ -2,6 +2,8 @@ use std::io::Write;
 use std::net::TcpStream;
 use std::{env, fs};
 
+use crate::request::Method;
+
 use super::request::Request;
 use super::response::{ContentType, HttpCode, Response};
 
@@ -21,9 +23,9 @@ fn get_directory() -> Option<String> {
 }
 
 pub fn handle_request(request: Request, stream: &mut TcpStream) {
-    let res = match request.get_path() {
-        "/" => stream.write_all(Response::new_empty(HttpCode::OK).to_string().as_bytes()),
-        "/user-agent" => stream.write_all(
+    let res = match (request.get_path(), request.get_method()) {
+        ("/", _) => stream.write_all(Response::new_empty(HttpCode::OK).to_string().as_bytes()),
+        ("/user-agent", _) => stream.write_all(
             Response::new(
                 HttpCode::OK,
                 ContentType::PlainText(request.get_header("User-Agent").to_string()),
@@ -31,7 +33,7 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
             .to_string()
             .as_bytes(),
         ),
-        header => {
+        (header, method) => {
             if header.starts_with("/echo/") {
                 let body = &header[6..];
                 stream.write_all(
@@ -39,7 +41,7 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                         .to_string()
                         .as_bytes(),
                 )
-            } else if header.starts_with("/files/") {
+            } else if header.starts_with("/files/") && *method == Method::GET {
                 let file_res = match get_directory() {
                     None => None,
                     Some(dir) => {
@@ -52,7 +54,6 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                         }
                     }
                 };
-
                 match file_res {
                     None => stream.write_all(
                         Response::new_empty(HttpCode::NotFound)
@@ -60,11 +61,39 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                             .as_bytes(),
                     ),
                     Some(file) => stream.write_all(
-                        Response::new(HttpCode::OK, ContentType::OctetStrean(file))
+                        Response::new(HttpCode::OK, ContentType::OctetStream(file))
                             .to_string()
                             .as_bytes(),
                     ),
                 }
+            } else if header.starts_with("/files/") && *method == Method::POST {
+
+                let file_res = match get_directory() {
+                    None => None,
+                    Some(dir) => {
+                        let filename = &header[7..];
+                        let file_path = dir + filename;
+
+                        match fs::write(file_path, &request.body) {
+                            Ok(file) => Some(file),
+                            Err(_) => None,
+                        }
+                    }
+                };
+                println!("{:?}", file_res);
+                match file_res {
+                    None => stream.write_all(
+                        Response::new_empty(HttpCode::NotFound)
+                            .to_string()
+                            .as_bytes(),
+                    ),
+                    Some(_) => stream.write_all(
+                        Response::new_empty(HttpCode::Created)
+                        .to_string()
+                        .as_bytes(),
+                    ),
+                }
+
             } else {
                 stream.write_all(
                     Response::new_empty(HttpCode::NotFound)

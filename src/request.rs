@@ -1,9 +1,10 @@
 use core::str;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::net::TcpStream;
+use std::vec;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Method {
     GET,
     POST,
@@ -60,37 +61,51 @@ impl Header {
 pub struct Request {
     request_line: Header,
     http_headers: HashMap<String, String>,
-    body: String,
+    pub body: Vec<u8>,
 }
 impl Request {
     pub fn new(mut stream: &TcpStream) -> Option<Self> {
-        let buf_reader = BufReader::new(&mut stream);
+        let mut buf_reader = BufReader::new(&mut stream);
+        let mut head = String::new();
 
-        let mut request = buf_reader
-            .lines()
-            .map(|l| l.unwrap())
-            .take_while(|line| !line.is_empty());
+        while let Ok(r) = buf_reader.read_line(&mut head) {
+            if r < 3 {
+                //detect empty line
+                break;
+            }
+        }
+        let mut request = head.lines();
 
         let header_str = request.next().unwrap();
-        let Some(header) = Header::from_string(header_str.as_str()) else {
+        let Some(header) = Header::from_string(header_str) else {
             return None;
         };
         let mut http_headers: HashMap<String, String> = HashMap::new();
 
         while let Some(line) = request.next() {
-            if line.as_str() == "" {
-                break;
-            }
             let Some((key, value)) = line.split_once(": ") else {
-                panic!("Cannot split {:?}", line);
+                continue;
             };
             http_headers.insert(key.to_string(), value.to_string());
         }
 
+        let content: Vec<u8> = match http_headers.get("Content-Length") {
+            Some(a) => {
+                match a.parse::<usize>() {
+                    Ok(size) => {
+                        let mut buffer = vec![0; size]; //New Vector with size of Content
+                        buf_reader.read_exact(&mut buffer).unwrap(); //Get the Body Content.
+                        buffer
+                    }
+                    Err(_) => vec![],
+                }
+            }
+            None => vec![],
+        };
         Some(Request {
             request_line: header,
             http_headers: http_headers,
-            body: request.collect(),
+            body: content,
         })
     }
     pub fn get_header(&self, header: &str) -> &str {
@@ -99,5 +114,8 @@ impl Request {
 
     pub fn get_path(&self) -> &str {
         &self.request_line.path
+    }
+    pub fn get_method(&self) -> &Method {
+        &self.request_line.method
     }
 }

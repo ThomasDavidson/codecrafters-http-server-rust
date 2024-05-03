@@ -5,30 +5,31 @@ use itertools::Itertools;
 
 pub enum ContentType {
     PlainText(String),
-    OctetStrean(Vec<u8>),
+    OctetStream(Vec<u8>),
 }
 impl ContentType {
     fn get_label(&self) -> &str {
         match self {
             ContentType::PlainText(_) => "text/plain",
-            ContentType::OctetStrean(_) => "application/octet-stream",
+            ContentType::OctetStream(_) => "application/octet-stream",
         }
     }
     fn to_string(&self) -> String {
         match self {
             ContentType::PlainText(content) => content.clone(),
-            ContentType::OctetStrean(content) => content.iter().map(|&byte| byte as char).collect(),
+            ContentType::OctetStream(content) => content.iter().map(|&byte| byte as char).collect(),
         }
     }
     fn len(&self) -> usize {
         match self {
             ContentType::PlainText(content) => content.len(),
-            ContentType::OctetStrean(content) => content.len(),
+            ContentType::OctetStream(content) => content.len(),
         }
     }
 }
 pub enum HttpCode {
     OK = 200,
+    Created = 201,
     BadRequest = 400,
     NotFound = 404,
 }
@@ -36,6 +37,7 @@ impl HttpCode {
     pub fn to_string(&self) -> String {
         match self {
             HttpCode::OK => "200 OK",
+            HttpCode::Created => "201 Created",
             HttpCode::BadRequest => "400 Bad Request",
             HttpCode::NotFound => "404 Not found",
         }
