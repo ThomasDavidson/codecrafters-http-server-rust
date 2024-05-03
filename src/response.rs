@@ -39,11 +39,11 @@ impl Response {
             self.body.to_string()
         )
     }
-    pub fn new_empty(code: HttpCode, body: &str) -> Self {
+    pub fn new_empty(code: HttpCode) -> Self {
         Self {
             header: StartLine::new(code),
             http_headers: HashMap::new(),
-            body: body.to_string(),
+            body: "".to_string(),
         }
     }
     pub fn new(code: HttpCode, body: &str, content_type: &str) -> Self {
