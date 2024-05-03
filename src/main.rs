@@ -1,6 +1,6 @@
 // Uncomment this block to pass the first stage
-use std::io::Write;
 use std::net::TcpListener;
+use std::{io::Write, thread};
 
 mod request;
 use request::Request;
@@ -23,19 +23,21 @@ fn main() {
             Ok(mut stream) => {
                 // let response = "HTTP/1.1 200 OK\r\n\r\n";
 
-                let Some(request) = Request::new(&mut stream) else {
-                    stream
-                        .write_all(
-                            Response::new_empty(HttpCode::BadRequest)
-                                .to_string()
-                                .as_bytes(),
-                        )
-                        .unwrap();
-                    continue;
-                };
+                // let mut stream_clone = stream.try_clone().expect("clone failed...");
 
-                let mut stream_clone = stream.try_clone().expect("clone failed...");
-                let _ = handle_request(request, &mut stream_clone);
+                thread::spawn(move || {
+                    let Some(request) = Request::new(&mut stream) else {
+                        stream
+                            .write_all(
+                                Response::new_empty(HttpCode::BadRequest)
+                                    .to_string()
+                                    .as_bytes(),
+                            )
+                            .unwrap();
+                        return;
+                    };
+                    handle_request(request, &mut stream);
+                });
 
                 println!("accepted new connection");
             }
