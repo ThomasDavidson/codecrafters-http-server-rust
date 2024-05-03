@@ -34,7 +34,8 @@ fn main() {
                     continue;
                 };
 
-                handle_request(request, &mut stream);
+                let mut stream_clone = stream.try_clone().expect("clone failed...");
+                let _ = handle_request(request, &mut stream_clone);
 
                 println!("accepted new connection");
             }

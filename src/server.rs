@@ -4,7 +4,7 @@ use std::net::TcpStream;
 use super::request::Request;
 use super::response::{HttpCode, Response};
 
-pub fn handle_request(request: Request, stream: &mut TcpStream) {
+pub async fn handle_request(request: Request, stream: &mut TcpStream) {
 
     match request.get_path() {
         "/" => stream
