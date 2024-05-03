@@ -85,7 +85,7 @@ impl Request {
             if line.as_str() == "" {
                 break;
             }
-            let Some((key, value)) = line.split_once(":")else {
+            let Some((key, value)) = line.split_once(": ")else {
                 panic!("Cannot split {:?}", line);
             };
             http_headers.insert(key.to_string(), value.to_string());
