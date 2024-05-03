@@ -1,11 +1,14 @@
 // Uncomment this block to pass the first stage
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::Write;
+use std::net::TcpListener;
 
 mod request;
 use request::Request;
 mod response;
 use response::{HttpCode, Response};
+
+use crate::server::handle_request;
+mod server;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -31,38 +34,7 @@ fn main() {
                     continue;
                 };
 
-                match request.get_path() {
-                    "/" => stream
-                        .write_all(Response::new_empty(HttpCode::OK).to_string().as_bytes())
-                        .unwrap(),
-                    "/user-agent" => stream
-                        .write_all(
-                            Response::new(HttpCode::OK, request.get_header("User-Agent"), "text/plain")
-                                .to_string()
-                                .as_bytes(),
-                        )
-                        .unwrap(),
-                    header => {
-                        if header.starts_with("/echo/") {
-                            let body = &header[6..];
-                            stream
-                                .write_all(
-                                    Response::new(HttpCode::OK, body, "text/plain")
-                                        .to_string()
-                                        .as_bytes(),
-                                )
-                                .unwrap()
-                        } else {
-                            stream
-                                .write_all(
-                                    Response::new_empty(HttpCode::NotFound)
-                                        .to_string()
-                                        .as_bytes(),
-                                )
-                                .unwrap()
-                        }
-                    }
-                }
+                handle_request(request, &mut stream);
 
                 println!("accepted new connection");
             }
