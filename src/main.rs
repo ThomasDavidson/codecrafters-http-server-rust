@@ -1,10 +1,11 @@
 // Uncomment this block to pass the first stage
 use core::str;
-use std::collections::{hash_map, HashMap};
-use std::io::{Read, Write};
-use std::net::TcpListener;
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
 
-use itertools::Itertools;
+mod response;
+use response::{HttpCode, Response};
 
 #[derive(Debug)]
 enum Method {
@@ -59,71 +60,44 @@ impl Header {
     }
 }
 
-enum HttpCode {
-    OK = 200,
-    BadRequest = 400,
-    NotFound = 404,
-}
-impl HttpCode {
-    fn to_string(&self) -> String {
-        match self {
-            HttpCode::OK => "200 OK",
-            HttpCode::BadRequest => "400 Bad Request",
-            HttpCode::NotFound => "404 Not found",
-        }
-        .to_string()
-    }
-}
-
-struct Response {
-    header: StartLine,
+#[derive(Debug)]
+struct Request {
+    request_line: Header,
     http_headers: HashMap<String, String>,
     body: String,
 }
-impl Response {
-    fn to_string(&self) -> String {
-        let mut fmt_headers = self.http_headers.iter().map(|(key, header)| format!("{key}:{header}"));
-        let head_str = fmt_headers.join("\r\n");
+impl Request {
+    fn new(mut stream: &TcpStream) -> Option<Self> {
+        let buf_reader = BufReader::new(&mut stream);
 
-        format!(
-            "{}\r\n{}\r\n\r\n{}",
-            self.header.to_string(),
-            head_str,
-            self.body.to_string()
-        )
-    }
-    fn new_empty(code: HttpCode, body: &str) -> Self {
-        Self {
-            header: StartLine::new(code),
-            http_headers: HashMap::new(),
-            body: body.to_string(),
-        }
-    }
-    fn new(code: HttpCode, headers: HashMap<String, String>, body: &str) -> Self {
-        Self {
-            header: StartLine::new(code),
-            http_headers: headers,
-            body: body.to_string(),
-        }
-    }
-}
-struct StartLine {
-    protocol: String,
-    http_code: HttpCode,
-}
+        let mut request = buf_reader
+            .lines()
+            .map(|l| l.unwrap())
+            .take_while(|line| !line.is_empty());
 
-impl StartLine {
-    fn to_string(&self) -> String {
-        format!("{} {}", self.protocol, self.http_code.to_string())
-    }
-    fn new(code: HttpCode) -> Self {
-        Self {
-            protocol: PROTOCOL_VERSION.to_string(),
-            http_code: code,
+        let header_str = request.next().unwrap();
+        let Some(header) = Header::from_string(header_str.as_str()) else {
+            return None;
+        };
+        let mut http_headers: HashMap<String, String> = HashMap::new();
+
+        while let Some(line) = request.next() {
+            if line.as_str() == "" {
+                break;
+            }
+            let Some((key, value)) = line.split_once(":")else {
+                panic!("Cannot split {:?}", line);
+            };
+            http_headers.insert(key.to_string(), value.to_string());
         }
+
+        Some(Request {
+            request_line: header,
+            http_headers: http_headers,
+            body: request.collect(),
+        })
     }
 }
-const PROTOCOL_VERSION: &str = "HTTP/1.1";
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -138,17 +112,7 @@ fn main() {
             Ok(mut stream) => {
                 // let response = "HTTP/1.1 200 OK\r\n\r\n";
 
-                let mut buf: [u8; 256] = [0; 256];
-                let Ok(size) = stream.read(&mut buf) else {
-                    break;
-                };
-                let Ok(str_resp) = str::from_utf8(&buf[0..size]) else {
-                    break;
-                };
-
-                let resp_lines = str_resp.lines().collect::<Vec<&str>>();
-
-                let Some(header) = Header::from_string(resp_lines[0]) else {
+                let Some(request) = Request::new(&mut stream) else {
                     stream
                         .write_all(
                             Response::new_empty(HttpCode::BadRequest, "")
@@ -159,34 +123,39 @@ fn main() {
                     continue;
                 };
 
-                match header.path.as_str() {
+                match request.request_line.path.as_str() {
                     "/" => stream
                         .write_all(Response::new_empty(HttpCode::OK, "").to_string().as_bytes())
+                        .unwrap(),
+                    "/user-agent" => stream
+                        .write_all(
+                            Response::new(HttpCode::OK, request.http_headers.get("User-Agent").unwrap(), "text/plain")
+                                .to_string()
+                                .as_bytes(),
+                        )
                         .unwrap(),
                     header => {
                         if header.starts_with("/echo/") {
                             let body = &header[6..];
-                            let http_headers: HashMap<String, String> = HashMap::from(
-                                [
-                                    ("Content-Length".to_string(), body.len().to_string()),
-                                    ("Content-Type".to_string(), "text/plain".to_string()),
-                                ],
-                            );
-
                             stream
-                                .write_all(Response::new(HttpCode::OK, http_headers, body).to_string().as_bytes())
+                                .write_all(
+                                    Response::new(HttpCode::OK, body, "text/plain")
+                                        .to_string()
+                                        .as_bytes(),
+                                )
                                 .unwrap()
                         } else {
                             stream
                                 .write_all(
-                                    Response::new_empty(HttpCode::NotFound, "").to_string().as_bytes(),
+                                    Response::new_empty(HttpCode::NotFound, "")
+                                        .to_string()
+                                        .as_bytes(),
                                 )
                                 .unwrap()
                         }
                     }
                 }
 
-                println!("{:?}", header);
                 println!("accepted new connection");
             }
             Err(e) => {
