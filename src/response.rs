@@ -3,6 +3,30 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
+pub enum ContentType {
+    PlainText(String),
+    OctetStrean(Vec<u8>),
+}
+impl ContentType {
+    fn get_label(&self) -> &str {
+        match self {
+            ContentType::PlainText(_) => "text/plain",
+            ContentType::OctetStrean(_) => "application/octet-stream",
+        }
+    }
+    fn to_string(&self) -> String {
+        match self {
+            ContentType::PlainText(content) => content.clone(),
+            ContentType::OctetStrean(content) => content.iter().map(|&byte| byte as char).collect(),
+        }
+    }
+    fn len(&self) -> usize {
+        match self {
+            ContentType::PlainText(content) => content.len(),
+            ContentType::OctetStrean(content) => content.len(),
+        }
+    }
+}
 pub enum HttpCode {
     OK = 200,
     BadRequest = 400,
@@ -22,7 +46,7 @@ impl HttpCode {
 pub struct Response {
     header: StartLine,
     http_headers: HashMap<String, String>,
-    body: String,
+    body: ContentType,
 }
 impl Response {
     pub fn to_string(&self) -> String {
@@ -43,19 +67,20 @@ impl Response {
         Self {
             header: StartLine::new(code),
             http_headers: HashMap::new(),
-            body: "".to_string(),
+            body: ContentType::PlainText("".to_string()),
         }
     }
-    pub fn new(code: HttpCode, body: &str, content_type: &str) -> Self {
+    pub fn new(code: HttpCode, content: ContentType) -> Self {
         let mut headers = HashMap::new();
+        let content_type_str = content.get_label();
 
-        headers.insert("Content-Length".to_string(), body.len().to_string());
-        headers.insert("Content-Type".to_string(), content_type.to_string());
+        headers.insert("Content-Length".to_string(), content.len().to_string());
+        headers.insert("Content-Type".to_string(), content_type_str.to_string());
 
         Self {
             header: StartLine::new(code),
             http_headers: headers,
-            body: body.to_string(),
+            body: content,
         }
     }
 }
