@@ -29,14 +29,14 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
         Some(s) => ContentEncoding::from_string(s),
     };
 
-    let user_agent = request.get_header("User-Agent").unwrap();
+    let user_agent = request.get_header("User-Agent");
 
     let res = match (request.get_path(), request.get_method()) {
         ("/", _) => stream.write_all(Response::new_empty(HttpCode::OK).to_string().as_bytes()),
         ("/user-agent", _) => stream.write_all(
             Response::new(
                 HttpCode::OK,
-                ContentType::PlainText(user_agent.clone()),
+                ContentType::PlainText(user_agent.unwrap().clone()),
                 None,
             )
             .to_string()
