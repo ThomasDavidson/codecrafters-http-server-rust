@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ContentEncoding {
     Gzip,
 }
@@ -13,11 +13,15 @@ impl ContentEncoding {
             ContentEncoding::Gzip => "gzip".to_string(),
         }
     }
-    pub fn from_string(text :&String) -> Option<Self> {
-        match text.to_ascii_lowercase().as_str() {
-            "gzip" => Some(ContentEncoding::Gzip),
-            _ => None
-        }
+    pub fn from_string(text: &String) -> Vec<Self> {
+        text.split(", ")
+            .map(|t| match t.to_ascii_lowercase().as_str() {
+                "gzip" => Some(ContentEncoding::Gzip),
+                _ => None,
+            })
+            .filter(|t| t.is_some())
+            .map(|t| t.unwrap())
+            .collect()
     }
 }
 

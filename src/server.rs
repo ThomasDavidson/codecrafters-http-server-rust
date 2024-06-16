@@ -24,9 +24,10 @@ fn get_directory() -> Option<String> {
 pub fn handle_request(request: Request, stream: &mut TcpStream) {
     let accepted_encoding_str = request.get_header("Accept-Encoding");
     let accepted_encoding = match accepted_encoding_str {
-        None => None,
+        None => Vec::new(),
         Some(s) => ContentEncoding::from_string(s),
     };
+    println!("{:?}", accepted_encoding);
 
     let user_agent = request.get_header("User-Agent");
 
@@ -44,11 +45,15 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
         (header, method) => {
             if header.starts_with("/echo/") {
                 let body = &header[6..];
+                let gzip_support = match accepted_encoding.contains(&ContentEncoding::Gzip) {
+                    false => None,
+                    true => Some(ContentEncoding::Gzip),
+                };
                 stream.write_all(
                     Response::new(
                         HttpCode::OK,
                         ContentType::PlainText(body.to_string()),
-                        accepted_encoding,
+                        gzip_support,
                     )
                     .to_string()
                     .as_bytes(),
