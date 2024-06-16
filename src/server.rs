@@ -5,7 +5,7 @@ use std::{env, fs};
 use crate::request::Method;
 
 use super::request::Request;
-use super::response::{ContentType, HttpCode, Response};
+use super::response::{ContentEncoding, ContentType, HttpCode, Response};
 
 fn get_directory() -> Option<String> {
     let args: Vec<String> = env::args().collect();
@@ -23,12 +23,21 @@ fn get_directory() -> Option<String> {
 }
 
 pub fn handle_request(request: Request, stream: &mut TcpStream) {
+    let accepted_encoding_str = request.get_header("Accept-Encoding");
+    let accepted_encoding = match accepted_encoding_str {
+        None => None,
+        Some(s) => ContentEncoding::from_string(s),
+    };
+
+    let user_agent = request.get_header("User-Agent").unwrap();
+
     let res = match (request.get_path(), request.get_method()) {
         ("/", _) => stream.write_all(Response::new_empty(HttpCode::OK).to_string().as_bytes()),
         ("/user-agent", _) => stream.write_all(
             Response::new(
                 HttpCode::OK,
-                ContentType::PlainText(request.get_header("User-Agent").to_string()),
+                ContentType::PlainText(user_agent.clone()),
+                None,
             )
             .to_string()
             .as_bytes(),
@@ -37,9 +46,13 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
             if header.starts_with("/echo/") {
                 let body = &header[6..];
                 stream.write_all(
-                    Response::new(HttpCode::OK, ContentType::PlainText(body.to_string()))
-                        .to_string()
-                        .as_bytes(),
+                    Response::new(
+                        HttpCode::OK,
+                        ContentType::PlainText(body.to_string()),
+                        accepted_encoding,
+                    )
+                    .to_string()
+                    .as_bytes(),
                 )
             } else if header.starts_with("/files/") && *method == Method::GET {
                 let file_res = match get_directory() {
@@ -61,13 +74,12 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                             .as_bytes(),
                     ),
                     Some(file) => stream.write_all(
-                        Response::new(HttpCode::OK, ContentType::OctetStream(file))
+                        Response::new(HttpCode::OK, ContentType::OctetStream(file), None)
                             .to_string()
                             .as_bytes(),
                     ),
                 }
             } else if header.starts_with("/files/") && *method == Method::POST {
-
                 let file_res = match get_directory() {
                     None => None,
                     Some(dir) => {
@@ -89,11 +101,10 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                     ),
                     Some(_) => stream.write_all(
                         Response::new_empty(HttpCode::Created)
-                        .to_string()
-                        .as_bytes(),
+                            .to_string()
+                            .as_bytes(),
                     ),
                 }
-
             } else {
                 stream.write_all(
                     Response::new_empty(HttpCode::NotFound)

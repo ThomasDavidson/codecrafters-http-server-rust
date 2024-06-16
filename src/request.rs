@@ -86,7 +86,7 @@ impl Request {
             let Some((key, value)) = line.split_once(": ") else {
                 continue;
             };
-            http_headers.insert(key.to_string(), value.to_string());
+            http_headers.insert(key.to_ascii_lowercase(), value.to_string());
         }
 
         let content: Vec<u8> = match http_headers.get("Content-Length") {
@@ -108,8 +108,8 @@ impl Request {
             body: content,
         })
     }
-    pub fn get_header(&self, header: &str) -> &str {
-        self.http_headers.get(header).unwrap()
+    pub fn get_header(&self, header: &str) -> Option<&String> {
+        self.http_headers.get(header.to_ascii_lowercase().as_str())
     }
 
     pub fn get_path(&self) -> &str {

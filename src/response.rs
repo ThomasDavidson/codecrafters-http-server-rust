@@ -3,6 +3,24 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
+#[derive(Debug)]
+pub enum ContentEncoding {
+    Gzip,
+}
+impl ContentEncoding {
+    fn to_string(&self) -> String {
+        match self {
+            ContentEncoding::Gzip => "gzip".to_string(),
+        }
+    }
+    pub fn from_string(text :&String) -> Option<Self> {
+        match text.to_ascii_lowercase().as_str() {
+            "gzip" => Some(ContentEncoding::Gzip),
+            _ => None
+        }
+    }
+}
+
 pub enum ContentType {
     PlainText(String),
     OctetStream(Vec<u8>),
@@ -72,12 +90,25 @@ impl Response {
             body: ContentType::PlainText("".to_string()),
         }
     }
-    pub fn new(code: HttpCode, content: ContentType) -> Self {
+    pub fn new(
+        code: HttpCode,
+        content: ContentType,
+        content_encoding: Option<ContentEncoding>,
+    ) -> Self {
         let mut headers = HashMap::new();
         let content_type_str = content.get_label();
 
         headers.insert("Content-Length".to_string(), content.len().to_string());
         headers.insert("Content-Type".to_string(), content_type_str.to_string());
+
+        println!("{:?}", content_encoding);
+
+        if content_encoding.is_some() {
+            headers.insert(
+                "Content-Encoding".to_string(),
+                content_encoding.unwrap().to_string(),
+            );
+        }
 
         Self {
             header: StartLine::new(code),
