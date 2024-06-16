@@ -88,11 +88,14 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
 
                         match fs::write(file_path, &request.body) {
                             Ok(file) => Some(file),
-                            Err(_) => None,
+                            Err(e) => {
+                                println!("File write error: {:?}", e);
+                                None
+                            }
                         }
                     }
                 };
-                println!("{:?}", file_res);
+                println!("File result: {:?}", file_res);
                 match file_res {
                     None => stream.write_all(
                         Response::new_empty(HttpCode::NotFound)

@@ -86,10 +86,10 @@ impl Request {
             let Some((key, value)) = line.split_once(": ") else {
                 continue;
             };
-            http_headers.insert(key.to_ascii_lowercase(), value.to_string());
+            http_headers.insert(key.to_string(), value.to_string());
         }
 
-        let content: Vec<u8> = match http_headers.get("Content-Length") {
+        let body: Vec<u8> = match http_headers.get("Content-Length") {
             Some(a) => {
                 match a.parse::<usize>() {
                     Ok(size) => {
@@ -97,19 +97,22 @@ impl Request {
                         buf_reader.read_exact(&mut buffer).unwrap(); //Get the Body Content.
                         buffer
                     }
-                    Err(_) => vec![],
+                    Err(e) => {
+                        println!("Body Parse Error: {:?}", e);
+                        vec![]
+                    },
                 }
             }
             None => vec![],
         };
         Some(Request {
             request_line: header,
-            http_headers: http_headers,
-            body: content,
+            http_headers,
+            body,
         })
     }
     pub fn get_header(&self, header: &str) -> Option<&String> {
-        self.http_headers.get(header.to_ascii_lowercase().as_str())
+        self.http_headers.get(header)
     }
 
     pub fn get_path(&self) -> &str {
