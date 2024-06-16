@@ -81,8 +81,14 @@ pub struct Response {
     gzip_supported: bool,
 }
 impl Response {
-    pub fn to_string(&mut self) -> io::Result<String> {
-        let formatted_body = match self.gzip_supported {
+    pub fn to_bytes(&self) -> io::Result<Vec<u8>> {
+
+        let mut bytes: Vec<u8> = Vec::new();
+
+
+        let mut headers = self.http_headers.clone();
+
+        let mut formatted_body = match self.gzip_supported {
             false => self.body.to_string().as_bytes().to_vec(),
             true => {
                 let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
@@ -91,26 +97,27 @@ impl Response {
             }
         };
 
-        println!("{:?}", self.body);
-        println!("{:?}", formatted_body);
-
-        self.http_headers.insert(
+        headers.insert(
             "Content-Length".to_string(),
             formatted_body.len().to_string(),
         );
 
-        let mut fmt_headers = self
-            .http_headers
+        let mut fmt_headers = headers
             .iter()
             .map(|(key, header)| format!("{key}:{header}"));
         let head_str = fmt_headers.join("\r\n");
 
-        Ok(format!(
-            "{}\r\n{}\r\n\r\n{}",
+        let header = format!(
+            "{}\r\n{}\r\n\r\n",
             self.header.to_string(),
             head_str,
-            self.body.to_string()
-        ))
+        );
+
+        bytes.append(&mut header.into_bytes());
+
+        bytes.append(&mut formatted_body);
+
+        Ok(bytes)
     }
     pub fn new_empty(code: HttpCode) -> Self {
         Self {

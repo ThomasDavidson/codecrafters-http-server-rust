@@ -31,21 +31,15 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
     let user_agent = request.get_header("User-Agent");
 
     let res = match (request.get_path(), request.get_method()) {
-        ("/", _) => stream.write_all(
-            Response::new_empty(HttpCode::OK)
-                .to_string()
-                .unwrap()
-                .as_bytes(),
-        ),
+        ("/", _) => stream.write_all(&Response::new_empty(HttpCode::OK).to_bytes().unwrap()),
         ("/user-agent", _) => stream.write_all(
-            Response::new(
+            &Response::new(
                 HttpCode::OK,
                 ContentType::PlainText(user_agent.unwrap().clone()),
                 None,
             )
-            .to_string()
-            .unwrap()
-            .as_bytes(),
+            .to_bytes()
+            .unwrap(),
         ),
         (header, method) => {
             if header.starts_with("/echo/") {
@@ -55,14 +49,13 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                     true => Some(ContentEncoding::Gzip),
                 };
                 stream.write_all(
-                    Response::new(
+                    &Response::new(
                         HttpCode::OK,
                         ContentType::PlainText(body.to_string()),
                         gzip_support,
                     )
-                    .to_string()
-                    .unwrap()
-                    .as_bytes(),
+                    .to_bytes()
+                    .unwrap(),
                 )
             } else if header.starts_with("/files/") && *method == Method::GET {
                 let file_res = match get_directory() {
@@ -78,17 +71,12 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                     }
                 };
                 match file_res {
-                    None => stream.write_all(
-                        Response::new_empty(HttpCode::NotFound)
-                            .to_string()
-                            .unwrap()
-                            .as_bytes(),
-                    ),
+                    None => stream
+                        .write_all(&Response::new_empty(HttpCode::NotFound).to_bytes().unwrap()),
                     Some(file) => stream.write_all(
-                        Response::new(HttpCode::OK, ContentType::OctetStream(file), None)
-                            .to_string()
-                            .unwrap()
-                            .as_bytes(),
+                        &Response::new(HttpCode::OK, ContentType::OctetStream(file), None)
+                            .to_bytes()
+                            .unwrap(),
                     ),
                 }
             } else if header.starts_with("/files/") && *method == Method::POST {
@@ -108,26 +96,14 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                     }
                 };
                 match file_res {
-                    None => stream.write_all(
-                        Response::new_empty(HttpCode::NotFound)
-                            .to_string()
-                            .unwrap()
-                            .as_bytes(),
-                    ),
-                    Some(_) => stream.write_all(
-                        Response::new_empty(HttpCode::Created)
-                            .to_string()
-                            .unwrap()
-                            .as_bytes(),
-                    ),
+                    None => stream
+                        .write_all(&Response::new_empty(HttpCode::NotFound).to_bytes().unwrap()),
+                    Some(_) => {
+                        stream.write_all(&Response::new_empty(HttpCode::Created).to_bytes().unwrap())
+                    }
                 }
             } else {
-                stream.write_all(
-                    Response::new_empty(HttpCode::NotFound)
-                        .to_string()
-                        .unwrap()
-                        .as_bytes(),
-                )
+                stream.write_all(&Response::new_empty(HttpCode::NotFound).to_bytes().unwrap())
             }
         }
     };

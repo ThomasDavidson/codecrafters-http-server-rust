@@ -23,10 +23,9 @@ fn main() {
                     let Some(request) = Request::new(&mut stream) else {
                         stream
                             .write_all(
-                                Response::new_empty(HttpCode::BadRequest)
-                                    .to_string()
+                                &Response::new_empty(HttpCode::BadRequest)
+                                    .to_bytes()
                                     .unwrap()
-                                    .as_bytes(),
                             )
                             .unwrap();
                         return;
