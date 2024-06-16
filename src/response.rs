@@ -82,12 +82,6 @@ pub struct Response {
 }
 impl Response {
     pub fn to_string(&mut self) -> io::Result<String> {
-        let mut fmt_headers = self
-            .http_headers
-            .iter()
-            .map(|(key, header)| format!("{key}:{header}"));
-        let head_str = fmt_headers.join("\r\n");
-
         let formatted_body = match self.gzip_supported {
             false => self.body.to_string().as_bytes().to_vec(),
             true => {
@@ -104,6 +98,12 @@ impl Response {
             "Content-Length".to_string(),
             formatted_body.len().to_string(),
         );
+
+        let mut fmt_headers = self
+            .http_headers
+            .iter()
+            .map(|(key, header)| format!("{key}:{header}"));
+        let head_str = fmt_headers.join("\r\n");
 
         Ok(format!(
             "{}\r\n{}\r\n\r\n{}",
