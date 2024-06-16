@@ -79,7 +79,6 @@ impl Response {
             .map(|(key, header)| format!("{key}:{header}"));
         let head_str = fmt_headers.join("\r\n");
 
-        println!("{:?}", self);
         format!(
             "{}\r\n{}\r\n\r\n{}",
             self.header.to_string(),

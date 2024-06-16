@@ -17,7 +17,6 @@ fn get_directory() -> Option<String> {
         return None;
     }
 
-    println!("args: {:?}", args);
     let dir = &args[2];
     Some(dir.clone())
 }
@@ -95,7 +94,6 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                         }
                     }
                 };
-                println!("File result: {:?}", file_res);
                 match file_res {
                     None => stream.write_all(
                         Response::new_empty(HttpCode::NotFound)
@@ -117,5 +115,4 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
             }
         }
     };
-    println!("Result: {:?}", res);
 }
