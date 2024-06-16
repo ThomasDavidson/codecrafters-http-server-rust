@@ -59,7 +59,7 @@ impl HttpCode {
             HttpCode::OK => "200 OK",
             HttpCode::Created => "201 Created",
             HttpCode::BadRequest => "400 Bad Request",
-            HttpCode::NotFound => "404 Not found",
+            HttpCode::NotFound => "404 Not Found",
         }
         .to_string()
     }
