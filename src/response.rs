@@ -21,6 +21,7 @@ impl ContentEncoding {
     }
 }
 
+#[derive(Debug)]
 pub enum ContentType {
     PlainText(String),
     OctetStream(Vec<u8>),
@@ -45,6 +46,7 @@ impl ContentType {
         }
     }
 }
+#[derive(Debug)]
 pub enum HttpCode {
     OK = 200,
     Created = 201,
@@ -63,6 +65,7 @@ impl HttpCode {
     }
 }
 
+#[derive(Debug)]
 pub struct Response {
     header: StartLine,
     http_headers: HashMap<String, String>,
@@ -76,6 +79,7 @@ impl Response {
             .map(|(key, header)| format!("{key}:{header}"));
         let head_str = fmt_headers.join("\r\n");
 
+        println!("{:?}", self);
         format!(
             "{}\r\n{}\r\n\r\n{}",
             self.header.to_string(),
@@ -101,8 +105,6 @@ impl Response {
         headers.insert("Content-Length".to_string(), content.len().to_string());
         headers.insert("Content-Type".to_string(), content_type_str.to_string());
 
-        println!("{:?}", content_encoding);
-
         if content_encoding.is_some() {
             headers.insert(
                 "Content-Encoding".to_string(),
@@ -117,6 +119,7 @@ impl Response {
         }
     }
 }
+#[derive(Debug)]
 pub struct StartLine {
     protocol: String,
     http_code: HttpCode,
