@@ -25,6 +25,7 @@ fn main() {
                             .write_all(
                                 Response::new_empty(HttpCode::BadRequest)
                                     .to_string()
+                                    .unwrap()
                                     .as_bytes(),
                             )
                             .unwrap();

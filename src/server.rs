@@ -27,12 +27,16 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
         None => Vec::new(),
         Some(s) => ContentEncoding::from_string(s),
     };
-    println!("{:?}", accepted_encoding);
 
     let user_agent = request.get_header("User-Agent");
 
     let res = match (request.get_path(), request.get_method()) {
-        ("/", _) => stream.write_all(Response::new_empty(HttpCode::OK).to_string().as_bytes()),
+        ("/", _) => stream.write_all(
+            Response::new_empty(HttpCode::OK)
+                .to_string()
+                .unwrap()
+                .as_bytes(),
+        ),
         ("/user-agent", _) => stream.write_all(
             Response::new(
                 HttpCode::OK,
@@ -40,6 +44,7 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                 None,
             )
             .to_string()
+            .unwrap()
             .as_bytes(),
         ),
         (header, method) => {
@@ -56,6 +61,7 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                         gzip_support,
                     )
                     .to_string()
+                    .unwrap()
                     .as_bytes(),
                 )
             } else if header.starts_with("/files/") && *method == Method::GET {
@@ -75,11 +81,13 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                     None => stream.write_all(
                         Response::new_empty(HttpCode::NotFound)
                             .to_string()
+                            .unwrap()
                             .as_bytes(),
                     ),
                     Some(file) => stream.write_all(
                         Response::new(HttpCode::OK, ContentType::OctetStream(file), None)
                             .to_string()
+                            .unwrap()
                             .as_bytes(),
                     ),
                 }
@@ -103,11 +111,13 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                     None => stream.write_all(
                         Response::new_empty(HttpCode::NotFound)
                             .to_string()
+                            .unwrap()
                             .as_bytes(),
                     ),
                     Some(_) => stream.write_all(
                         Response::new_empty(HttpCode::Created)
                             .to_string()
+                            .unwrap()
                             .as_bytes(),
                     ),
                 }
@@ -115,6 +125,7 @@ pub fn handle_request(request: Request, stream: &mut TcpStream) {
                 stream.write_all(
                     Response::new_empty(HttpCode::NotFound)
                         .to_string()
+                        .unwrap()
                         .as_bytes(),
                 )
             }

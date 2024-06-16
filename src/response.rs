@@ -1,5 +1,9 @@
 use core::str;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use std::collections::HashMap;
+use std::io;
+use std::io::Write;
 
 use itertools::Itertools;
 
@@ -74,27 +78,46 @@ pub struct Response {
     header: StartLine,
     http_headers: HashMap<String, String>,
     body: ContentType,
+    gzip_supported: bool,
 }
 impl Response {
-    pub fn to_string(&self) -> String {
+    pub fn to_string(&mut self) -> io::Result<String> {
         let mut fmt_headers = self
             .http_headers
             .iter()
             .map(|(key, header)| format!("{key}:{header}"));
         let head_str = fmt_headers.join("\r\n");
 
-        format!(
+        let formatted_body = match self.gzip_supported {
+            false => self.body.to_string().as_bytes().to_vec(),
+            true => {
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+                encoder.write_all(self.body.to_string().as_bytes())?;
+                encoder.finish()?
+            }
+        };
+
+        println!("{:?}", self.body);
+        println!("{:?}", formatted_body);
+
+        self.http_headers.insert(
+            "Content-Length".to_string(),
+            formatted_body.len().to_string(),
+        );
+
+        Ok(format!(
             "{}\r\n{}\r\n\r\n{}",
             self.header.to_string(),
             head_str,
             self.body.to_string()
-        )
+        ))
     }
     pub fn new_empty(code: HttpCode) -> Self {
         Self {
             header: StartLine::new(code),
             http_headers: HashMap::new(),
             body: ContentType::PlainText("".to_string()),
+            gzip_supported: false,
         }
     }
     pub fn new(
@@ -105,8 +128,12 @@ impl Response {
         let mut headers = HashMap::new();
         let content_type_str = content.get_label();
 
-        headers.insert("Content-Length".to_string(), content.len().to_string());
         headers.insert("Content-Type".to_string(), content_type_str.to_string());
+
+        let gzip_supported = match content_encoding {
+            Some(ContentEncoding::Gzip) => true,
+            _ => false,
+        };
 
         if content_encoding.is_some() {
             headers.insert(
@@ -119,6 +146,7 @@ impl Response {
             header: StartLine::new(code),
             http_headers: headers,
             body: content,
+            gzip_supported,
         }
     }
 }
